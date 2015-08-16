@@ -1,0 +1,19 @@
+{
+  "name": "mapcreater",
+  "version": "1.0.0",
+  "description": "为了满足策划项目需求和自己学新技术,制作的一个地图生成器",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samael65535/MapCreater.git"
+  },
+  "author": "samael",
+  "license": "Beerware",
+  "bugs": {
+    "url": "https://github.com/samael65535/MapCreater/issues"
+  },
+  "homepage": "https://github.com/samael65535/MapCreater#readme"
+}

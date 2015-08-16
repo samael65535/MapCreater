@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<meta charset='utf-8'>
+<script src="bower_components/d3/d3.js"></script>
+<script src="bower_components/underscore/underscore.js"></script>
+<script src="bower_components/jquery/dist/jquery.js"></script>
+
+<style>
+    .overlay {
+        fill: none;
+        pointer-events: all;
+    }
+    .div-inline{
+        float:left;
+        display:inline;
+        width: 70%;
+    }
+
+</style>
+<body class="noscroll">
+<div class="div-inline">
+    <p id="map"></p>
+
+</div>
+<p>矿产出现概率(0~1): <input type="text" id="probability" value="0.2">
+    <input name="updateButton"
+           type="button"
+           value="Update"
+           onclick="updateData()" />
+</p>
+<div style="float:left;width:30%">
+<p>
+    <svg width="20" height="20">
+        <rect width="20" height="20" style="fill:Blue;" />
+    </svg>
+    水晶权重: <input type="text" id="crystal" value="1" > <br> <br>
+    1~25级分布: <input type="text" id="crystal_level" value="[1, 2]">
+</p>
+<p>
+    <svg width="20" height="20">
+        <rect width="20" height="20" style="fill:BlueViolet;" />
+    </svg>
+    石油权重: <input type="text" id="oil" value="1" >  <br> <br>
+    1~25级分布: <input type="text" id="oil_level" value="[1, 2]">
+</p>
+<p>
+    <svg width="20" height="20">
+        <rect width="20" height="20" style="fill:Brown;" />
+    </svg>
+    铅矿权重: <input type="text" id="lead" value="1" > <br> <br>
+    1~25级分布: <input type="text" id="lead_level" value="[1, 2]">
+</p>
+<p>
+    <svg width="20" height="20">
+        <rect width="20" height="20" style="fill:BurlyWood;" />
+    </svg>
+    钛矿权重: <input type="text" id="ti" value="1" > <br> <br>
+    1~25级分布: <input type="text" id="ti_level" value="[1, 2]">
+</p>
+<p>
+    <svg width="20" height="20">
+        <rect width="20" height="20" style="fill:CadetBlue;" />
+    </svg>
+    铁矿权重: <input type="text" id="iron" value="1">   <br> <br>
+    1~25级分布: <input type="text" id="iron_level" value="[1, 2]">
+</p>
+</div>
+<script>
+
+    var width = window.innerHeight, height = window.innerHeight;
+    var body = d3.select("body");
+    var p = body.select('p');
+
+    var svg = p.append("svg")
+            .attr("width", width)
+            .attr("height",height)
+            .append("g")
+            .call(d3.behavior.zoom().scaleExtent([1, 6]).on("zoom", zoom))
+            .append("g");
+    var isRefresh = false;
+    var blockRow = 100;
+    var blockCol = 100;
+
+    function zoom() {
+        svg.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+    }
+
+    function generateMinerMeta() {
+        var type_array = ["crystal", "oil", "lead", "ti", "iron"];
+        var all_mineral = [];
+        var total_weight = 0;
+        _.each(type_array, function(type, i) {
+            total_weight += parseInt($("#" + type).val());
+        });
+        _.each(type_array, function(type, i) {
+            var weight = parseInt($("#" + type).val()) / total_weight;
+            var level_weight = JSON.parse($("#" + type +"_level").val());
+            var total = _.reduce(level_weight, function(m, n) {
+                return m + n;
+            }, 0);
+            _.each(level_weight, function(w, l) {
+                all_mineral.push({weight: (w / total) * weight, type: i + 1, level: l + 1});
+            });
+        });
+        return all_mineral;
+    }
+
+    function getRandomMine(mineralMeta) {
+        var mineTotalWeight = 0, mineCumWeight = 0, i;
+        // sum up the weights
+        for (i = 0; i < mineralMeta.length; i++) {
+            mineTotalWeight += mineralMeta[i].weight;
+        }
+        var random = Math.random() * mineTotalWeight;
+        // now find which bucket out random value is in
+
+        for (i = 0; i < mineralMeta.length; i++) {
+            mineCumWeight += mineralMeta[i].weight;
+            if (random < mineCumWeight) {
+                return(mineralMeta[i]);
+            }
+        }
+    }
+
+    function generateData() {
+        var k = [];
+        var mineralMeta = generateMinerMeta();
+        for (var i = 0; i < blockRow; i++) {
+            for (var j = 0; j < blockCol; j++) {
+                if (Math.random() < $("#probability").val()) {
+                    var m  = getRandomMine(mineralMeta);
+                    k.push({
+                        x: i,
+                        y: j,
+                        type: m.type,
+                        level: m.level
+                    });
+                } else {
+                    k.push({
+                        x: i,
+                        y: j,
+                        type: 0,
+                        level: 0
+                    })
+                }
+            }
+        }
+        return k;
+    }
+
+    function updateData() {
+        // 绑定数据, 生成地图
+        var rectHeight = width / blockCol;   //每个矩形所占的像素高度(包括空白)
+        var dataset = generateData();  //数据（表示矩形的宽度）
+//        svg.append("rect")
+//                .attr("class", "overlay")
+//                .attr("width", width)
+//                .attr("height", height);
+        if (isRefresh == false) {
+            svg.selectAll("rect")
+                    .data(dataset)
+                    .enter()
+                    .append("rect")
+                    .attr("x", function (d, i) {
+                        return d.x * rectHeight;
+                    })
+                    .attr("y", function (d, i) {
+                        return d.y * rectHeight;
+                    })
+                    .attr("width", rectHeight)
+                    .attr("height", rectHeight)
+                    .style("fill", function (d) {
+                        switch(d.type) {
+                            case 0:
+                                return "White";;
+                            case 1:
+                                return "Blue";
+                            case 2:
+                                return "BlueViolet";
+                            case 3:
+                                return "Brown";
+                            case 4:
+                                return "BurlyWood";
+                            case 5:
+                                return "CadetBlue";
+                        }
+                    });
+            svg.selectAll("text")
+                    .data(dataset)
+                    .enter()
+                    .append("text")
+                    .text(function(d){
+                        return d.level
+                    })
+                    .attr("x", function (d, i) {
+                        return d.x * rectHeight
+                    })
+                    .attr("y", function (d, i) {
+                        return d.y * rectHeight + rectHeight
+                    })
+                    .attr("font-size", "2")
+                    .attr('fill', 'white');
+
+
+            isRefresh = true;
+        } else {
+            svg.selectAll("rect")
+                    .data(dataset)
+                    .attr("x", function (d, i) {
+                        return d.x * rectHeight;
+                    })
+                    .attr("y", function (d, i) {
+                        return d.y * rectHeight;
+                    })
+                    .style("fill", function (d) {
+                        switch(d.type) {
+                            case 0:
+                                return "White";
+                            case 1:
+                                return "Blue";
+                            case 2:
+                                return "BlueViolet";
+                            case 3:
+                                return "Brown";
+                            case 4:
+                                return "BurlyWood";
+                            case 5:
+                                return "CadetBlue";
+                        }
+                    });
+            svg.selectAll("text")
+                    .data(dataset)
+                    .text(function(d){
+                        return d.level
+                    })
+                    .attr("x", function (d, i) {
+                        return d.x * rectHeight;
+                    })
+                    .attr("y", function (d, i) {
+                        return d.y * rectHeight + rectHeight;
+                    })
+                    .attr('fill', 'white');
+
+        }
+    }
+</script>
+
+</body>
+</html>
